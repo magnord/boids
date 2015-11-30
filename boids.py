@@ -15,21 +15,22 @@ fig = plt.figure(figsize=(8, 8))
 ax = fig.add_axes([0, 0, 1, 1], frameon=False)
 ax.set_xlim(0, 1), ax.set_xticks([])
 ax.set_ylim(0, 1), ax.set_yticks([])
-x_target = random.uniform(0.0, 1.0)
-y_target = random.uniform(0.0, 1.0)
+x_target = random.uniform(0.3, 0.7)
+y_target = random.uniform(0.3, 0.7)
 
 # Simulation parameters
-N = 200
+N = 400
 WORLD_WIDTH = 1.0
-REPULSION_LIMIT = WORLD_WIDTH / 50
-WALL_REPULSION_LIMIT = WORLD_WIDTH / 10
-REPULSION_STRENGTH = 0.005
-WALL_REPULSION_STRENGTH = 0.003
-ALIGNMENT_LIMIT = WORLD_WIDTH / 8
-ATTRACTION_STRENGTH = 3e-6
-ALIGNMENT_STRENGTH = 0.01
-
-MAX_SPEED = WORLD_WIDTH / 200
+REPULSION_LIMIT = WORLD_WIDTH / 25
+WALL_REPULSION_LIMIT = WORLD_WIDTH / 8
+REPULSION_STRENGTH = 0.010
+WALL_REPULSION_STRENGTH = 0.0012
+ATTRACTION_STRENGTH = 9e-6
+TARGET_ATTRACTION_STRENGTH = 7e-4
+ALIGNMENT_LIMIT = WORLD_WIDTH / 10
+ALIGNMENT_STRENGTH = 0.012
+MAX_SPEED = WORLD_WIDTH / 80
+NOISE = 0.1
 assert REPULSION_LIMIT < ALIGNMENT_LIMIT
 
 # Init boids
@@ -61,6 +62,8 @@ def update_boids(xs, ys, xvs, yvs, frame):
     # Repulse adjacent boids
     repulsion = np.clip(1.0 - distance / REPULSION_LIMIT, 0.0, 1.0) * visible
     repulsion_n = np.maximum(np.add.reduce(repulsion > 0.0).astype(float) - 1, 1)
+    yvs += -np.sum(xdiff * repulsion, axis=0) * REPULSION_STRENGTH / repulsion_n
+    xvs += -np.sum(ydiff * repulsion, axis=0) * REPULSION_STRENGTH / repulsion_n
 
     # Align with nearby boids
     alignment = (distance < ALIGNMENT_LIMIT).astype(float) * visible
@@ -75,12 +78,8 @@ def update_boids(xs, ys, xvs, yvs, frame):
     # Move towards target
     global x_target
     global y_target
-    xvs += (x_target - xs) * 30 * ATTRACTION_STRENGTH
-    yvs += (y_target - ys) * 30 * ATTRACTION_STRENGTH
-
-    # Repulsion from nearby boids
-    yvs += -np.sum(xdiff * repulsion, axis=0) * REPULSION_STRENGTH / repulsion_n
-    xvs += -np.sum(ydiff * repulsion, axis=0) * REPULSION_STRENGTH / repulsion_n
+    xvs += (x_target - xs) * TARGET_ATTRACTION_STRENGTH
+    yvs += (y_target - ys) * TARGET_ATTRACTION_STRENGTH
 
     # Wall repulsion
     xvs += np.clip(1.0 - xs / WALL_REPULSION_LIMIT, 0.0, 1.0) * WALL_REPULSION_STRENGTH
@@ -88,12 +87,13 @@ def update_boids(xs, ys, xvs, yvs, frame):
     xvs -= np.clip(1.0 - (WORLD_WIDTH - xs) / WALL_REPULSION_LIMIT, 0.0, 1.0) * WALL_REPULSION_STRENGTH
     yvs -= np.clip(1.0 - (WORLD_WIDTH - ys) / WALL_REPULSION_LIMIT, 0.0, 1.0) * WALL_REPULSION_STRENGTH
 
-    #xvs = np.clip(xvs, -MAX_SPEED, MAX_SPEED)
-    #yvs = np.clip(yvs, -MAX_SPEED, MAX_SPEED)
+    # Enforce max speed and apply some friction
+    xvs = np.clip(xvs * 0.8 , -MAX_SPEED, MAX_SPEED)
+    yvs = np.clip(yvs * 0.8 , -MAX_SPEED, MAX_SPEED)
 
     # Add some random noise to velocity
-    x_noise = np.random.uniform(0.8, 1.2, N)
-    y_noise = np.random.uniform(0.8, 1.2, N)
+    x_noise = np.random.uniform(1.0-NOISE, 1.0+NOISE, N)
+    y_noise = np.random.uniform(1.0-NOISE, 1.0+NOISE, N)
     xs += xvs * x_noise
     ys += yvs * y_noise
 
@@ -107,6 +107,7 @@ def animate(frame):
                  frame)
 
     scatter.set_offsets(boids['pos'])
+
 
 def mouse_move(ev):
     global x_target
